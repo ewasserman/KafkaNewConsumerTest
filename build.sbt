@@ -16,7 +16,7 @@ libraryDependencies ++= {
     "ch.qos.logback"               % "logback-classic"        % "1.1.9", // Logback with slf4j facade
     "org.slf4j"                    % "slf4j-api"              % "1.7.22",
     "org.apache.kafka"             % "kafka-clients"          % "0.10.0.0",
-    "com.jamcity"                  % "avro-codec"             % "0.0.4",
+    "com.jamcity"                  % "avro-codec"             % "0.0.5",
     "org.apache.commons"           % "commons-lang3"          % "3.5",
     "com.jsuereth"                %% "scala-arm"              % "1.4",
     "org.scalatest"               %% "scalatest"              % "2.2.6"     % "test"

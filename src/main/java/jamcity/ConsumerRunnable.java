@@ -15,8 +15,10 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.jamcity.avro.kafka.SpecificKafkaAvroDeserializer;
+
 public class ConsumerRunnable implements Runnable {
-    private final KafkaConsumer<String, byte[]> consumer;
+    private final KafkaConsumer<String, Event> consumer;
     private final List<String> topics;
     private final int id;
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -29,7 +31,9 @@ public class ConsumerRunnable implements Runnable {
         props.put("group.id", groupId);
         props.put("key.deserializer", StringDeserializer.class.getName());
         props.put("value.deserializer", ByteArrayDeserializer.class.getName());
-        this.consumer = new KafkaConsumer<>(props);
+        final StringDeserializer keyDeserializer = new StringDeserializer();
+        final SpecificKafkaAvroDeserializer<Event> valueDeserializer = new SpecificKafkaAvroDeserializer<>(Event.class);
+        this.consumer = new KafkaConsumer<>(props, keyDeserializer, valueDeserializer);
     }
 
     @Override
@@ -39,16 +43,17 @@ public class ConsumerRunnable implements Runnable {
 
             int cnt = 1000;
             while (!closed.get()) {
-                ConsumerRecords<String, byte[]> records = consumer.poll(Long.MAX_VALUE);
-                for (ConsumerRecord<String, byte[]> record : records) {
-                    MessageDecoder decoder = MessageDecoder.forData(record.value());
-                    try {
-                        Event e = decoder.decodeSpecific(Event.getClassSchema());
-                        System.out.printf("key=%s value=Event[ appId=%s, srvTs=%d, event=%s, eventJSON=%s ]\n", record.key(), e.getAppId(), e.getServerTimestamp(), e.getEvent(),
-                            StringUtils.abbreviate(e.getEventJson(), 30));
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                ConsumerRecords<String, Event> records = consumer.poll(Long.MAX_VALUE);
+                for (ConsumerRecord<String, Event> record : records) {
+                    Event e = record.value();
+                    System.out.printf("key=%s value=Event[ appId=%s, srvTs=%d, event=%s, eventJSON=%s ]\n", record.key(), e.getAppId(), e.getServerTimestamp(), e.getEvent(),
+                        StringUtils.abbreviate(e.getEventJson(), 30));
+//                    MessageDecoder decoder = MessageDecoder.forData(record.value());
+//                    try {
+//                        Event e = decoder.decodeSpecific(Event.getClassSchema());
+//                    } catch (IOException e) {
+//                        e.printStackTrace();
+//                    }
                     cnt -= 1;
                 }
                 if (cnt < 0) break;
