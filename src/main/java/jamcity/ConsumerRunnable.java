@@ -48,12 +48,6 @@ public class ConsumerRunnable implements Runnable {
                     Event e = record.value();
                     System.out.printf("key=%s value=Event[ appId=%s, srvTs=%d, event=%s, eventJSON=%s ]\n", record.key(), e.getAppId(), e.getServerTimestamp(), e.getEvent(),
                         StringUtils.abbreviate(e.getEventJson(), 30));
-//                    MessageDecoder decoder = MessageDecoder.forData(record.value());
-//                    try {
-//                        Event e = decoder.decodeSpecific(Event.getClassSchema());
-//                    } catch (IOException e) {
-//                        e.printStackTrace();
-//                    }
                     cnt -= 1;
                 }
                 if (cnt < 0) break;
