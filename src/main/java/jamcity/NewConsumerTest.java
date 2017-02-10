@@ -17,6 +17,15 @@ public class NewConsumerTest {
     private List<String> topics;
     private ExecutorService pool;
 
+    private boolean generic = true;
+
+    private ConsumerRunnable makeConsumerRunnable(int i) {
+        if(generic)
+            return new GConsumerRunnable(brokerList, i, groupId, topics);
+        else
+            return new SConsumerRunnable(brokerList, i, groupId, topics);
+    }
+
     public static void main(String[] args) {
         String group = args[0];
         System.out.printf("Using consumer group: %s", group);
@@ -37,7 +46,7 @@ public class NewConsumerTest {
     void run() {
         try {
             for (int i=0; i < poolSize; ++i) {
-                pool.execute(new ConsumerRunnable(brokerList, i, groupId, topics));
+                pool.execute(makeConsumerRunnable(i));
             }
         } catch (Throwable ex) {
             ex.printStackTrace();
