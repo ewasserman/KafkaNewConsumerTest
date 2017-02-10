@@ -1,5 +1,8 @@
 package jamcity;
 
+import com.jamcity.avro.codec.MessageDecoder;
+import jc.analytics.Event;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -7,18 +10,16 @@ import org.apache.kafka.common.errors.WakeupException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-import javax.xml.bind.DatatypeConverter;
-import java.io.ByteArrayInputStream;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.io.IOException;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ConsumerRunnable implements Runnable {
     private final KafkaConsumer<String, byte[]> consumer;
     private final List<String> topics;
     private final int id;
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     public ConsumerRunnable(String brokerList, int id, String groupId, List<String> topics) {
         this.id = id;
@@ -33,32 +34,38 @@ public class ConsumerRunnable implements Runnable {
 
     @Override
     public void run() {
-        MessageDigest md = null;
-        try {
-            md = MessageDigest.getInstance("MD5");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
-
         try {
             consumer.subscribe(topics);
 
-            while (true) {
+            int cnt = 1000;
+            while (!closed.get()) {
                 ConsumerRecords<String, byte[]> records = consumer.poll(Long.MAX_VALUE);
                 for (ConsumerRecord<String, byte[]> record : records) {
-                    byte[] valueDigest = md.digest(record.value());
-                    String valueMd5Hex = DatatypeConverter.printHexBinary(valueDigest);
-                    System.out.printf("[%d] %d@%d key:%s md5(value):%s\n", id, record.partition(), record.offset(), record.key(), valueMd5Hex);
+                    MessageDecoder decoder = MessageDecoder.forData(record.value());
+                    try {
+                        Event e = decoder.decodeSpecific(Event.getClassSchema());
+                        System.out.printf("key=%s value=Event[ appId=%s, srvTs=%d, event=%s, eventJSON=%s ]\n", record.key(), e.getAppId(), e.getServerTimestamp(), e.getEvent(),
+                            StringUtils.abbreviate(e.getEventJson(), 30));
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    cnt -= 1;
                 }
+                if (cnt < 0) break;
             }
         } catch (WakeupException e) {
-            // ignore for shutdown
+            // Ignore exception if closing
+            if(!closed.get()) throw e;
         } finally {
             consumer.close();
         }
     }
 
+    /**
+     * This may be safely called on a separate thread to shut down this consumer
+     */
     public void shutdown() {
+        closed.set(true);
         consumer.wakeup();
     }
 

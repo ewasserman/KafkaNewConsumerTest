@@ -18,7 +18,9 @@ public class NewConsumerTest {
     private ExecutorService pool;
 
     public static void main(String[] args) {
-        NewConsumerTest t = new NewConsumerTest(2, Arrays.asList("analytics.event"), "mygroup");
+        String group = args[0];
+        System.out.printf("Using consumer group: %s", group);
+        NewConsumerTest t = new NewConsumerTest(2, Arrays.asList("analytics.event"), group);
         t.run();
         t.shutdownAndAwaitTermination(t.pool);
     }
